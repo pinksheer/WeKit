@@ -223,6 +223,11 @@ class DexConstructorDelegate internal constructor(
         cachedConstructor = null
     }
 
+    fun setPlaceholderDescriptor() {
+        WeLogger.w(nameOf(DexMethodDelegate::class), "setting placeholder for $key")
+        setDescriptor(DexMethodDescriptor("Lcom/tencent/mm/ui/LauncherUI;->getInstance()Lcom/tencent/mm/ui/LauncherUI;"))
+    }
+
     @Suppress("unused")
     fun setDescriptor(className: String, methodSign: String) =
         setDescriptor(DexMethodDescriptor(className, "<init>", methodSign))

@@ -11,6 +11,7 @@ import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.constants.WeChatVersions
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
+import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
@@ -19,11 +20,8 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.collections.emptyHashSet
 import dev.ujhhgtg.wekit.utils.reflection.BString
-import dev.ujhhgtg.wekit.utils.reflection.asConstuctor
-import dev.ujhhgtg.wekit.utils.reflection.asMethod
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
 import dev.ujhhgtg.wekit.utils.reflection.bool
-import dev.ujhhgtg.wekit.utils.reflection.dexKit
 import dev.ujhhgtg.wekit.utils.reflection.int
 import dev.ujhhgtg.wekit.utils.reflection.isBuiltin
 import dev.ujhhgtg.wekit.utils.reflection.makeAccessible
@@ -327,6 +325,49 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
             }
         }
 
+        if ((HostInfo.versionCode >= WeChatVersions.MM_8_0_67 && !HostInfo.isHostGooglePlay) ||
+            HostInfo.versionCode >= WeChatVersions.MM_8_0_66_PLAY && HostInfo.isHostGooglePlay
+        ) {
+            methodImgUploadFeatureServiceSendImage.find(dexKit) {
+                matcher {
+                    declaredClass {
+                        usingEqStrings("MicroMsg.ImgUpload.MsgImgFeatureService", "taskListener", "params")
+                    }
+
+                    paramCount(1)
+                    usingEqStrings("params")
+                }
+            }
+
+            methodAppInfoSetAppId.find(dexKit) {
+                matcher {
+                    declaredClass {
+                        usingEqStrings("appinfo", "appid", "version", "appname", "isforceupdate", "messageaction", "messageext", "mediatagname")
+                    }
+
+                    paramTypes(BString)
+                    usingNumbers(0)
+                }
+            }
+
+            ctorNetSceneUploadMsgImg.setPlaceholderDescriptor()
+        } else {
+            methodImgUploadFeatureServiceSendImage.setPlaceholderDescriptor()
+
+            methodAppInfoSetAppId.setPlaceholderDescriptor()
+
+            ctorNetSceneUploadMsgImg.find(dexKit) {
+                searchPackages("com.tencent.mm.modelimage")
+                matcher {
+                    name = "<init>"
+                    declaredClass {
+                        usingEqStrings("MicroMsg.NetSceneUploadMsgImg", "/cgi-bin/micromsg-bin/uploadmsgimg")
+                    }
+                    paramTypes(int, BString, BString, BString, int, null, int, BString, BString, bool, int)
+                }
+            }
+        }
+
         // ---------------------------------------------------------------------------------
         // 语音/VFS 组件动态查找
         // ---------------------------------------------------------------------------------
@@ -600,49 +641,33 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
         }
     }
 
-    private lateinit var methodImgUploadFeatureServiceSendImage: Method
-    private lateinit var ctorNetSceneUploadMsgImg: Constructor<*>
+    private val methodImgUploadFeatureServiceSendImage by dexMethod()
+    private val methodAppInfoSetAppId by dexMethod()
+    private val ctorNetSceneUploadMsgImg by dexConstructor()
 
-    fun sendImageByMd5(toUser: String, md5: String, appMsgAppId: String?) {
+    fun sendImageByMd5(toUser: String, md5: String, appMsgAppId: String? = null) {
         if ((HostInfo.versionCode >= WeChatVersions.MM_8_0_67 && !HostInfo.isHostGooglePlay) ||
             HostInfo.versionCode >= WeChatVersions.MM_8_0_66_PLAY && HostInfo.isHostGooglePlay
         ) {
-            if (!::methodImgUploadFeatureServiceSendImage.isInitialized) {
-                methodImgUploadFeatureServiceSendImage =
-                    dexKit.findMethod {
-                        matcher {
-                            declaredClass {
-                                usingEqStrings("MicroMsg.ImgUpload.MsgImgFeatureService", "taskListener", "params")
-                            }
-
-                            paramCount(1)
-                            usingEqStrings("params")
-                        }
-                    }.single().asMethod
-            }
-
-            val sendImageMethod = methodImgUploadFeatureServiceSendImage
+            val sendImageMethod = methodImgUploadFeatureServiceSendImage.method
             val paramsClass = sendImageMethod.parameterTypes[0]
             val crossParamsClass = paramsClass.asResolver()
                 .firstField { type { !it.isBuiltin } }.self.type
             val crossParams = crossParamsClass.createInstance()
+
+            if (appMsgAppId != null) {
+                val appInfoClass = methodAppInfoSetAppId.method.declaringClass
+                val appInfo = appInfoClass.createInstance()
+                methodAppInfoSetAppId.method.invoke(appInfo, appMsgAppId)
+                crossParams.asResolver()
+                    .firstField {
+                        type = appInfoClass
+                    }.set(appInfo)
+            }
+
             val params = paramsClass.createInstance(md5, 1, WeApi.selfWxId, toUser, crossParams)
             sendImageMethod.invoke(WeServiceApi.getServiceByClass(sendImageMethod.declaringClass), params)
         } else {
-            if (!::ctorNetSceneUploadMsgImg.isInitialized) {
-                ctorNetSceneUploadMsgImg =
-                    dexKit.findMethod {
-                        searchPackages("com.tencent.mm.modelimage")
-                        matcher {
-                            name = "<init>"
-                            declaredClass {
-                                usingEqStrings("MicroMsg.NetSceneUploadMsgImg", "/cgi-bin/micromsg-bin/uploadmsgimg")
-                            }
-                            paramTypes(int, BString, BString, BString, int, null, int, BString, BString, bool, int)
-                        }
-                    }.single().asConstuctor
-            }
-
             val xml: String?
             val wxId = WeApi.selfWxId
             if (appMsgAppId != null) {
