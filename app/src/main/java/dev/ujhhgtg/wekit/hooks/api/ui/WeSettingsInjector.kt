@@ -61,7 +61,7 @@ import java.lang.reflect.Modifier
 import kotlin.io.path.div
 
 @HookItem(path = "API/设置模块入口")
-object WeSettingsInjector : ApiHookItem(), IResolvesDex {
+object WeSettingsInjector : ApiHookItem(), IResolvesDex, WeHomeScreenPopupMenuApi.IMenuItemsProvider {
 
     private val methodSetKey by dexMethod()
     private val methodSetTitle by dexMethod()
@@ -197,6 +197,8 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
         // injectModernMethod1()
         injectModernMethod2()
         // injectModernMethod3()
+
+        injectHomeScreenMenu()
 
         hookLauncherUi()
     }
@@ -420,6 +422,20 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
                 contextGetStringUnhook = null
             }
     }
+
+    private fun injectHomeScreenMenu() {
+        WeHomeScreenPopupMenuApi.addProvider(this)
+    }
+
+    override fun onDisable() {
+        WeHomeScreenPopupMenuApi.removeProvider(this)
+    }
+
+    override fun getMenuItems(param: XC_MethodHook.MethodHookParam) = listOf(
+        WeHomeScreenPopupMenuApi.MenuItem(
+            676767, BuildConfig.TAG, 0
+        ) { openSettingsDialog(LauncherUI.getInstance()!!) }
+    )
 
 //    private fun injectModernMethod3() {
 //        if (methodSettingGroupPluginOnClick.isPlaceholder) {

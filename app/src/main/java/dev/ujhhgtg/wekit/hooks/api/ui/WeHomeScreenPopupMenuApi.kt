@@ -118,7 +118,6 @@ object WeHomeScreenPopupMenuApi : ApiHookItem(), IResolvesDex {
                     if (item.id == id) {
                         try {
                             item.onClick()
-                            result = null
                             return@hookBefore
                         } catch (ex: Exception) {
                             WeLogger.e(
