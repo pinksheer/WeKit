@@ -12,7 +12,7 @@
 
 ## 描述
 
-为公众号时间线中的预加载网页（`TmplWebViewMMUI`）添加 `FLAG_ACTIVITY_NEW_DOCUMENT` 和 `FLAG_ACTIVITY_MULTIPLE_TASK` 标志，使每个预加载页面以独立任务窗口打开，支持多任务切换。
+为公众号时间线中的预加载网页 (`TmplWebViewMMUI`) 添加 `FLAG_ACTIVITY_NEW_DOCUMENT` 和 `FLAG_ACTIVITY_MULTIPLE_TASK` 标志, 使每个预加载页面以独立任务窗口打开, 支持多任务切换。
 
 ## 使用方法
 

@@ -5,11 +5,11 @@
 ## 功能列表
 
 - [禁止微信检测 Xposed](prevent-xposed-detection.md) — 防止微信检测 Xposed 框架
-- [禁用微信热更新](disable-host-hot-updates.md) — 禁止微信热更新，避免被强制更新到不兼容版本
+- [禁用微信热更新](disable-host-hot-updates.md) — 禁止微信热更新, 避免被强制更新到不兼容版本
 - [禁用存储空间不足检测](disable-low-available-storage-detection.md) — 移除 Root 隐藏模块导致的可用空间检测错误限制
 - [阻止微信清理模块数据](prevent-module-data-deletion.md) — 阻止微信存储空间清理功能删除模块数据
 - [虚拟定位](fake-location.md) — 预设微信获取到的经纬度
-- [环境伪装](spoof-environment.md) — 伪装未启用 ADB/开发者选项/VPN，协助通过环境安全检测
+- [环境伪装](spoof-environment.md) — 伪装未启用 ADB/开发者选项/VPN, 协助通过环境安全检测
 - [省电模式](power-saver.md) — 通过优化措施减少微信耗电
 - [强制平板模式](force-tablet-mode.md) — 让微信识别当前设备为平板
 - [预见性返回动画](predictive-back-gestures.md) — 为微信界面强制启用 Android 预见性返回动画 [需 SDK >= 33]
@@ -27,5 +27,5 @@
 - [恢复旧版卡包界面](use-legacy-wallet-view.md) — 使用旧版「卡包」代替「小店与卡包」
 - [链接跳转系统打开方式](link-external-app-jump.md) — 打开链接时弹窗选择系统应用打开
 - [二维码扫描记录](qr-code-record.md) — 记录扫描过的二维码 URL
-- [清理缓存垃圾](auto-clean-cache.md) — 自动或手动清理微信缓存，每 30 分钟自动清理一次
-- [API 服务器](api-server.md) — MCP + REST API 服务器，见[服务器文档](../servers/api-server.md)
+- [清理缓存垃圾](auto-clean-cache.md) — 自动或手动清理微信缓存, 每 30 分钟自动清理一次
+- [API 服务器](api-server.md) — MCP + REST API 服务器, 见[服务器文档](../servers/api-server.md)

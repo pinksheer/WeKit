@@ -1,10 +1,10 @@
 # 脚本引擎 API 参考
 
-脚本引擎基于 Rhino JavaScript 引擎，提供完整的微信扩展 API。
+脚本引擎基于 Rhino JavaScript 引擎, 提供完整的微信扩展 API。
 
 ## 脚本目录
 
-脚本文件存放于 `<模块数据目录>/scripts/` 目录下，支持 `.js` 扩展名。模块启动时会自动加载并执行该目录下的所有脚本。
+脚本文件存放于 `<模块数据目录>/scripts/` 目录下, 支持 `.js` 扩展名。模块启动时会自动加载并执行该目录下的所有脚本。
 
 ## 全局函数
 
@@ -20,16 +20,16 @@ declare function onLoad(): void;
 
 ```typescript
 declare function onMessage(
-    talker: string, 
-    content: string, 
-    type: number, 
+    talker: string,
+    content: string,
+    type: number,
     isSend: number
 ): string | MessageResponse | null | void;
 ```
 
 收到新消息时触发。可通过返回值拦截或修改消息。
 
-**示例：**
+**示例:**
 
 ```javascript
 function onMessage(talker, content, type, isSend) {
@@ -69,7 +69,7 @@ declare namespace log {
 }
 ```
 
-**示例：**
+**示例:**
 
 ```javascript
 log.i("当前用户:", wxid);
@@ -98,7 +98,7 @@ interface HttpResponse {
 }
 ```
 
-**示例：**
+**示例:**
 
 ```javascript
 // GET 请求
@@ -136,7 +136,7 @@ declare namespace storage {
 }
 ```
 
-**示例：**
+**示例:**
 
 ```javascript
 // 计数器
@@ -162,7 +162,7 @@ declare namespace datetime {
 }
 ```
 
-**示例：**
+**示例:**
 
 ```javascript
 datetime.sleepMs(500);  // 等待 500ms
@@ -184,7 +184,7 @@ declare namespace wechat {
 }
 ```
 
-**示例：**
+**示例:**
 
 ```javascript
 wechat.sendText("wxid_abc123", "你好！");
@@ -211,7 +211,7 @@ declare namespace wechat {
 }
 ```
 
-**示例：**
+**示例:**
 
 ```javascript
 function onMessage(talker, content, type, isSend) {
@@ -231,7 +231,7 @@ declare namespace wechat {
 }
 ```
 
-**示例：**
+**示例:**
 
 ```javascript
 const myWxId = wechat.getSelfWxId();
@@ -252,9 +252,9 @@ declare namespace task {
 }
 ```
 
-在独立线程中执行函数，避免阻塞主脚本。
+在独立线程中执行函数, 避免阻塞主脚本。
 
-**示例：**
+**示例:**
 
 ```javascript
 task.run(function() {
@@ -274,7 +274,7 @@ declare namespace hostinfo {
 }
 ```
 
-**示例：**
+**示例:**
 
 ```javascript
 const ctx = hostinfo.application;
@@ -292,7 +292,7 @@ declare namespace xposed {
 }
 ```
 
-**示例：**
+**示例:**
 
 ```javascript
 // 通过类名和方法名 Hook
@@ -360,7 +360,7 @@ declare namespace reflect {
 }
 ```
 
-**示例：**
+**示例:**
 
 ```javascript
 // 查找并调用方法
@@ -400,7 +400,7 @@ declare namespace dexkit {
 
 ## 常用辅助函数
 
-建议在脚本开头定义：
+建议在脚本开头定义:
 
 ```javascript
 function getCleanContent(content) {
@@ -422,4 +422,4 @@ function isGroupMessage(content) {
 
 - 脚本引擎在启用「脚本引擎」功能后才会加载脚本
 - `onMessage()`、`onRequest()`、`onResponse()` 触发器需在模块设置中分别启用
-- 脚本中可以使用 Java 类的全限定名访问 Android/Java API。对于不常用的类，需在全限定名前添加 `Packages.` 前缀。
+- 脚本中可以使用 Java 类的全限定名访问 Android/Java API。对于不常用的类, 需在全限定名前添加 `Packages.` 前缀。
