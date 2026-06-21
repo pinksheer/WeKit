@@ -241,8 +241,8 @@ object AutoAcceptTransfers : ClickableHookItem(), IResolveDex, WeDatabaseListene
                         TextField(
                             value = autoReplyInput,
                             onValueChange = { autoReplyInput = it.trim() },
-                            label = { Text("接收后自动回复") },
-                            supportingText = { Text($$"自动接收转账后向来源对话发送自定义消息, 留空禁用\n(使用占位符 $amount 表示金额)") },
+                            label = { Text("接收后自动回复 (留空禁用)") },
+                            supportingText = { Text($$"自动接收转账后向来源对话发送自定义消息\n(使用占位符 $amount 表示金额)") },
                             singleLine = true,
                         )
                     }

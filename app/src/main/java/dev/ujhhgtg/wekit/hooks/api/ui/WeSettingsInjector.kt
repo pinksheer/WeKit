@@ -37,7 +37,7 @@ import org.luckypray.dexkit.query.enums.StringMatchType
 import java.lang.reflect.Modifier
 
 @HookItem(name = "设置模块入口", categories = ["API"])
-object WeSettingsInjector : ApiHookItem(), IResolveDex, WeHomeScreenPopupMenuApi.IMenuItemsProvider {
+object WeSettingsInjector : ApiHookItem(), IResolveDex {
 
     private val methodSetKey by dexMethod()
     private val methodSetTitle by dexMethod()
@@ -228,8 +228,6 @@ object WeSettingsInjector : ApiHookItem(), IResolveDex, WeHomeScreenPopupMenuApi
     }
 
     override fun onEnable() {
-        injectHomeScreenMenu()
-
         hookLauncherUi()
 
         injectLegacy()
@@ -512,20 +510,6 @@ object WeSettingsInjector : ApiHookItem(), IResolveDex, WeHomeScreenPopupMenuApi
         settingsManager.install()
     }
 
-    private fun injectHomeScreenMenu() {
-        WeHomeScreenPopupMenuApi.addProvider(this)
-    }
-
-    override fun onDisable() {
-        WeHomeScreenPopupMenuApi.removeProvider(this)
-    }
-
-    override fun getMenuItems(param: XC_MethodHook.MethodHookParam) = listOf(
-        WeHomeScreenPopupMenuApi.MenuItem(
-            0, BuildConfig.TAG, ExtensionIcon
-        ) { openSettingsDialog(LauncherUI.getInstance()!!) }
-    )
-
 //    private fun injectModernMethod3() {
 //        if (methodSettingGroupPluginOnClick.isPlaceholder) {
 //            WeLogger.w(TAG, "methodSettingGroupPluginOnClick not found, skipping")
@@ -568,7 +552,7 @@ object WeSettingsInjector : ApiHookItem(), IResolveDex, WeHomeScreenPopupMenuApi
     }
 
     @Suppress("NOTHING_TO_INLINE")
-    private inline fun openSettingsDialog(activity: Activity) {
+    inline fun openSettingsDialog(activity: Activity) {
         MainSettingsScreen().show(activity)
     }
 

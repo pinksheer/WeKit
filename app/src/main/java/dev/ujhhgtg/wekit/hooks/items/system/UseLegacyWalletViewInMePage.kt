@@ -6,7 +6,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
-import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(name = "恢复旧版「我」界面卡包", categories = ["系统与隐私"], description = "在「我」界面使用旧版「卡包」而非「小店与卡包」")
 object UseLegacyWalletViewInMePage : SwitchHookItem(), IResolveDex {

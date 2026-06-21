@@ -18,8 +18,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.core.net.toUri
-import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.comptime.This
+import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -59,7 +59,7 @@ object AutoOpenRedPackets : ClickableHookItem(), WeDatabaseListenerApi.IInsertLi
 
     private val currentRedPacketMap = ConcurrentHashMap<String, RedPacketInfo>()
 
-    data class RedPacketInfo(
+    private data class RedPacketInfo(
         val sendId: String,
         val nativeUrl: String,
         val talker: String,
@@ -106,6 +106,8 @@ object AutoOpenRedPackets : ClickableHookItem(), WeDatabaseListenerApi.IInsertLi
 
         methodOpenOnGYNetEnd.hookAfter {
             val json = args[2] as? JSONObject ?: return@hookAfter
+            WeLogger.d(TAG,  "" + json.toString())
+
             val sendId = json.optString("sendId")
             if (sendId.isNullOrEmpty()) return@hookAfter
 
@@ -117,7 +119,13 @@ object AutoOpenRedPackets : ClickableHookItem(), WeDatabaseListenerApi.IInsertLi
                 return@hookAfter
             }
 
-            val amount = json.optInt("recAmount", 0)
+            val receiveStatus = json.optInt("receiveStatus", -1)
+            if (receiveStatus != 2) {
+                WeLogger.w(TAG, "missed the packet (recvStatus=$receiveStatus, sendId=$sendId)")
+                return@hookAfter
+            }
+
+            val amount = json.optInt("amount", 0)
             if (amount <= 0) return@hookAfter
 
             val displayAmount = amount / 100.0
@@ -326,8 +334,8 @@ object AutoOpenRedPackets : ClickableHookItem(), WeDatabaseListenerApi.IInsertLi
                         TextField(
                             value = autoReplyInput,
                             onValueChange = { autoReplyInput = it.trim() },
-                            label = { Text("抢到后自动回复") },
-                            supportingText = { Text($$"成功抢到红包后向来源对话发送自定义消息, 留空禁用\n(使用占位符 $amount 表示金额)") },
+                            label = { Text("抢到后自动回复 (留空禁用)") },
+                            supportingText = { Text($$"成功抢到红包后向来源对话发送自定义消息\n(使用占位符 $amount 表示金额)") },
                             singleLine = true,
                         )
                     }

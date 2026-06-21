@@ -1,4 +1,4 @@
-package dev.ujhhgtg.wekit.hooks.items.chat
+package dev.ujhhgtg.wekit.hooks.items.home_screen_menu
 
 import de.robv.android.xposed.XC_MethodHook
 import dev.ujhhgtg.wekit.hooks.api.core.WeConversationApi
