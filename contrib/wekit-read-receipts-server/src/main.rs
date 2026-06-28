@@ -1,16 +1,16 @@
 use axum::{
     Json, Router,
-    extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode, header},
+    extract::{ConnectInfo, Path, Query, State},
+    http::{StatusCode, header},
     response::{IntoResponse, Response},
     routing::get,
 };
 use base64::{Engine as _, engine::general_purpose};
 use chrono::Utc;
 use libsql::{Builder, Connection};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 // 1x1 transparent PNG file bytes to serve as the tracking pixel
 const TRACKING_PIXEL: &[u8] = &[
@@ -20,6 +20,27 @@ const TRACKING_PIXEL: &[u8] = &[
     0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
     0x42, 0x60, 0x82,
 ];
+
+/// Query parameters for the tracking pixel endpoint.
+/// Only `uuid` is required for logging; `msg` is optional base64-encoded text.
+#[derive(Deserialize)]
+struct TrackingPixelParams {
+    uuid: Option<String>,
+    msg: Option<String>,
+}
+
+impl TrackingPixelParams {
+    /// Decodes the base64 `msg` field, truncating to 500 chars.
+    /// Returns an empty string if absent, invalid base64, or not valid UTF-8.
+    fn decoded_msg(&self) -> String {
+        self.msg
+            .as_deref()
+            .and_then(|m| general_purpose::URL_SAFE_NO_PAD.decode(m.as_bytes()).ok())
+            .and_then(|bytes| String::from_utf8(bytes).ok())
+            .map(|s| s.chars().take(500).collect())
+            .unwrap_or_default()
+    }
+}
 
 struct AppState {
     db: Connection,
@@ -37,7 +58,8 @@ struct HitRecord {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "debug".into()),
         )
         .init();
 
@@ -106,46 +128,16 @@ async fn serve_index() -> impl IntoResponse {
 /// Also dumps all query parameters and request headers at INFO level for debugging.
 async fn serve_tracking_pixel(
     State(state): State<Arc<AppState>>,
-    Query(params): Query<HashMap<String, String>>,
-    headers: HeaderMap,
+    Query(params): Query<TrackingPixelParams>,
+    ConnectInfo(remote_addr): ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
-    // Debug-log all query parameters
-    let query_debug: Vec<String> = params.iter().map(|(k, v)| format!("{k} = {v}")).collect();
-    let query_debug = query_debug.join(", ");
-
-    // Debug-log all request headers
-    let header_debug: Vec<String> = headers
-        .iter()
-        .map(|(k, v)| {
-            let val = v.to_str().unwrap_or("<binary>");
-            format!("{k}: {val}")
-        })
-        .collect();
-    let header_debug = header_debug.join("\n");
-
-    debug!("/pixel request\n  Query: {query_debug}\n  Headers:\n{header_debug}");
-
-    // Extract real client IP from standard reverse-proxy headers (Cloudflare, Nginx, etc.)
-    let client_ip = headers
-        .get("X-Forwarded-For")
-        .and_then(|h| h.to_str().ok())
-        .and_then(|s| s.split(',').next())
-        .map(|s| s.trim().to_string())
-        .unwrap_or_else(|| "0.0.0.0".to_string());
-
+    let client_ip = remote_addr.ip().to_string();
     let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
-    if let Some(uuid) = params.get("uuid") {
-        // Decode base64-encoded message text; default to empty string on any failure
-        let msg: String = params
-            .get("msg")
-            .and_then(|m| general_purpose::URL_SAFE_NO_PAD.decode(m.as_bytes()).ok())
-            .and_then(|bytes| {
-                String::from_utf8(bytes)
-                    .ok()
-                    .map(|s| s.chars().take(500).collect())
-            })
-            .unwrap_or_default();
+    if let Some(uuid) = &params.uuid {
+        let msg = params.decoded_msg();
+
+        info!("/pixel request\nuuid = {uuid}, msg = {msg}, client_ip = {client_ip}");
 
         if let Err(e) = state
             .db
@@ -158,7 +150,7 @@ async fn serve_tracking_pixel(
             error!("failed to log hit: {e}");
         }
     } else {
-        warn!("/pixel request without 'id' query parameter — hit not logged");
+        warn!("/pixel request without 'uuid' query parameter — hit not logged");
     }
 
     Response::builder()

@@ -1,10 +1,9 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import android.content.Context
-import android.util.Base64
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.getValue
@@ -25,13 +24,21 @@ import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
+import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.UuidV4
+import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import java.util.Base64
 
-@Feature(name = "已读追踪", categories = ["聊天"], description = "追踪文本消息已读人数 (没写完)")
+@Feature(name = "已读追踪", categories = ["聊天"], description = "追踪文本消息已读人数")
 object ReadReceipts : ClickableFeature() {
+
+    private fun encode(input: String): String {
+        val bytes = Base64.getUrlEncoder().withoutPadding().encode(input.toByteArray())
+        return String(bytes)
+    }
 
     override fun onEnable() {
         ChatInputBarEnhancements.methodSendMessage.hookBefore(100) {
@@ -43,13 +50,10 @@ object ReadReceipts : ClickableFeature() {
             if (!text.startsWith(prefix)) return@hookBefore
 
             val actualText = text.removePrefix(prefix)
-            val msgEncoded = Base64.encodeToString(
-                actualText.toByteArray(),
-                Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
-            )
-            val pixelUrl = "$server/pixel?uuid=$uuid&msg=$msgEncoded"
+            val msgEncoded = encode(actualText)
+            val pixelUrl = "$server/pixel?uuid=$uuid&amp;msg=$msgEncoded"
 
-            val escapedText = text
+            val escapedText = actualText
                 .replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
@@ -104,11 +108,15 @@ object ReadReceipts : ClickableFeature() {
                         TextField(
                             value = serverInput,
                             onValueChange = { serverInput = it },
-                            label = { Text("服务器") })
+                            label = { Text("服务器") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                         TextField(
                             value = prefixInput,
                             onValueChange = { prefixInput = it },
-                            label = { Text("触发前缀") })
+                            label = { Text("触发前缀") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             TextField(
                                 value = uuidInput,

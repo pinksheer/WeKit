@@ -58,7 +58,7 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
     }
 
     fun sendXmlAppMsg(
-        toUser: String,
+        target: String,
         title: String,
         appId: String,
         url: String?,
@@ -66,7 +66,7 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
         xmlContent: String
     ): Boolean {
         return try {
-            WeLogger.i(TAG, "sending appmsg to $toUser")
+            WeLogger.i(TAG, "sending appmsg to $target")
             val contentObj = methodParseXml.method.invoke(null, xmlContent)
             if (contentObj == null) {
                 WeLogger.e(TAG, "failed to parse xml")
@@ -78,7 +78,7 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
                 contentObj, // content
                 appId,             // appId
                 title,             // title/appName
-                toUser,            // toUser
+                target,            // toUser
                 url,               // url
                 data               // thumbDat
             )

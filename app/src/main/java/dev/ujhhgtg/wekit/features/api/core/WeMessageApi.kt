@@ -1100,25 +1100,25 @@ object WeMessageApi : ApiFeature(), IResolveDex {
         }
     }
 
-    fun sendXmlAppMsg(toUser: String, xmlContent: String): Boolean {
+    fun sendXmlAppMsg(target: String, xmlContent: String): Boolean {
         val appId = extractXmlAttr(xmlContent, "appid")
         val title = extractXmlTag(xmlContent, "title")
 
         WeLogger.d(TAG, "appmsg info: appid=$appId, title=$title")
-        return WeAppMsgApi.sendXmlAppMsg(toUser, title, appId, null, null, xmlContent)
+        return WeAppMsgApi.sendXmlAppMsg(target, title, appId, null, null, xmlContent)
     }
 
     /**
      * 使用微信内部 VFS 引擎进行物理拷贝
      */
-    private fun copyFileViaVfs(sourcePath: String, destPath: String): Boolean {
-        WeLogger.d(TAG, "VFS Copy: $sourcePath -> $destPath")
+    private fun copyFileViaVfs(src: String, dst: String): Boolean {
+        WeLogger.d(TAG, "VFS Copy: $src -> $dst")
         return try {
-            val input = vfsReadMethod.invoke(null, sourcePath) as? InputStream
-                ?: error("VFS Open Failed for $sourcePath")
+            val input = vfsReadMethod.invoke(null, src) as? InputStream
+                ?: error("VFS Open Failed for $src")
 
-            val output = vfsCopyMethod.invoke(null, destPath, false) as? OutputStream
-                ?: error("VFS Create Failed for $destPath")
+            val output = vfsCopyMethod.invoke(null, dst, false) as? OutputStream
+                ?: error("VFS Create Failed for $dst")
 
             input.use { i ->
                 output.use { o ->
@@ -1127,7 +1127,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
             }
 
             // 校验
-            val exists = vfsExistsMethod.invoke(null, destPath) as? Boolean ?: false
+            val exists = vfsExistsMethod.invoke(null, dst) as? Boolean ?: false
             if (exists) {
                 WeLogger.i(TAG, "VFS copy succeeded")
             } else {

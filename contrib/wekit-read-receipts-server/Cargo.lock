@@ -648,6 +648,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "hex"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+
+[[package]]
 name = "home"
 version = "0.5.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2131,6 +2137,7 @@ dependencies = [
  "axum 0.8.9",
  "base64",
  "chrono",
+ "hex",
  "libsql",
  "serde",
  "tokio",

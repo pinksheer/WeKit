@@ -7,7 +7,6 @@ import android.view.Gravity
 import android.view.View
 import android.widget.RelativeLayout
 import android.widget.TextView
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -24,6 +23,7 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
+import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -147,7 +147,7 @@ object DisplayMessageSendTime : ClickableFeature(),
 
             AlertDialogContent(title = { Text("显示消息时间") },
                 text = {
-                    Column {
+                    DefaultColumn {
                         TextField(
                             value = patternInput,
                             onValueChange = { patternInput = it },

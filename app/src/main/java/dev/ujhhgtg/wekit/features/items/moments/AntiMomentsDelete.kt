@@ -53,10 +53,10 @@ object AntiMomentsDelete : SwitchFeature(), WeDatabaseListenerApi.IUpdateListene
 
                 if (appendWatermark(proto, 5)) {
                     values.put("content", proto.toMessageBytes())
-                    WeLogger.i(TAG, "拦截成功：[$kindName] 已注入标记")
+                    WeLogger.i(TAG, "intercepted: [$kindName], marker injected")
                 }
             } catch (e: Exception) {
-                WeLogger.e(TAG, "朋友圈 Protobuf 处理失败", e)
+                WeLogger.e(TAG, "failed to handle moments protobuf", e)
             }
         }
     }
