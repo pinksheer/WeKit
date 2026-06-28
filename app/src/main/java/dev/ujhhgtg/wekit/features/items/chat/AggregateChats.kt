@@ -501,26 +501,48 @@ object AggregateChats : ClickableFeature(),
     }
 
     private fun unreadCountForMembers(members: List<String>): Int {
+        if (members.isEmpty()) return 0
         val placeholders = members.joinToString(",") { "?" }
-        val cursor = WeDatabaseApi.rawQuery(
+        val sumCursor = WeDatabaseApi.rawQuery(
             "SELECT SUM(${ConversationTable.UNREAD_COUNT}) FROM ${ConversationTable.NAME} WHERE ${ConversationTable.USERNAME} IN ($placeholders)",
             arrayOf(*members.toTypedArray())
         )
-        return cursor.use { cursor ->
+        val sum = sumCursor.use { cursor ->
+            if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getInt(0) else 0
+        }
+        if (sum > 0) return sum
+
+        // Fallback: if SUM returned 0 (or null), return count of members that have unReadCount>0
+        val countCursor = WeDatabaseApi.rawQuery(
+            "SELECT COUNT(1) FROM ${ConversationTable.NAME} WHERE ${ConversationTable.USERNAME} IN ($placeholders) AND ${ConversationTable.UNREAD_COUNT}>0",
+            arrayOf(*members.toTypedArray())
+        )
+        return countCursor.use { cursor ->
             if (cursor.moveToFirst()) cursor.getInt(0) else 0
         }
     }
 
     private fun unreadMuteCountForMembers(members: List<String>): Int {
+        if (members.isEmpty()) return 0
         val placeholders = members.joinToString(",") { "?" }
-        val cursor = WeDatabaseApi.rawQuery(
+        val sumCursor = WeDatabaseApi.rawQuery(
             "SELECT SUM(${ConversationTable.UNREAD_MUTE_COUNT}) FROM ${ConversationTable.NAME} WHERE ${ConversationTable.USERNAME} IN ($placeholders)",
             arrayOf(*members.toTypedArray())
         )
-        return cursor.use { cursor ->
+        val sum = sumCursor.use { cursor ->
+            if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getInt(0) else 0
+        }
+        if (sum > 0) return sum
+
+        val countCursor = WeDatabaseApi.rawQuery(
+            "SELECT COUNT(1) FROM ${ConversationTable.NAME} WHERE ${ConversationTable.USERNAME} IN ($placeholders) AND ${ConversationTable.UNREAD_MUTE_COUNT}>0",
+            arrayOf(*members.toTypedArray())
+        )
+        return countCursor.use { cursor ->
             if (cursor.moveToFirst()) cursor.getInt(0) else 0
         }
     }
+
 
     private fun isFolderSchemaReady(): Boolean {
         folderSchemaReady?.let { return it }
