@@ -10,7 +10,6 @@ import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.features.core.FeaturesLoader
 import dev.ujhhgtg.wekit.loader.utils.ActivityProxy
 import dev.ujhhgtg.wekit.loader.utils.ParcelableFixer
-import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.RuntimeConfig
 import dev.ujhhgtg.wekit.utils.TargetProcesses
@@ -18,12 +17,6 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 import dev.ujhhgtg.wekit.utils.invokeOriginal
 import dev.ujhhgtg.wekit.utils.reflection.int
-import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.add
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 
 object WeLauncher {
 
@@ -53,28 +46,28 @@ object WeLauncher {
 
         runCatching {
             FeaturesLoader.loadFeatures()
-            val exportJson = run {
-                val map = WePrefs.default.getAll()
-                val jsonObject = buildJsonObject {
-                    for ((key, value) in map) {
-                        when (value) {
-                            is Boolean -> put(key, value)
-                            is Int -> put(key, value)
-                            is Long -> put(key, value)
-                            is Float -> put(key, value)
-                            is Double -> put(key, value)
-                            is String -> put(key, value)
-                            is Set<*> -> put(key, buildJsonArray {
-                                @Suppress("UNCHECKED_CAST")
-                                (value as Set<String>).forEach { add(it) }
-                            })
-                            null -> put(key, JsonNull)
-                        }
-                    }
-                }
-                DefaultJson.encodeToString(jsonObject)
-            }
-            WeLogger.d(TAG, "prefs:\n${exportJson}")
+//            val exportJson = run {
+//                val map = WePrefs.default.getAll()
+//                val jsonObject = buildJsonObject {
+//                    for ((key, value) in map) {
+//                        when (value) {
+//                            is Boolean -> put(key, value)
+//                            is Int -> put(key, value)
+//                            is Long -> put(key, value)
+//                            is Float -> put(key, value)
+//                            is Double -> put(key, value)
+//                            is String -> put(key, value)
+//                            is Set<*> -> put(key, buildJsonArray {
+//                                @Suppress("UNCHECKED_CAST")
+//                                (value as Set<String>).forEach { add(it) }
+//                            })
+//                            null -> put(key, JsonNull)
+//                        }
+//                    }
+//                }
+//                DefaultJson.encodeToString(jsonObject)
+//            }
+//            WeLogger.d(TAG, "prefs:\n${exportJson}")
         }.onFailure { WeLogger.e(TAG, "failed to load hooks", it) }
     }
 
