@@ -6,7 +6,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.ui.utils.EditIcon
+import dev.ujhhgtg.wekit.ui.utils.UndoIcon
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 
@@ -24,7 +24,7 @@ object BatchRevoke : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProv
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
-                777023, "撤回", EditIcon, MaterialSymbols.Outlined.Edit,
+                777023, "撤回", UndoIcon, MaterialSymbols.Outlined.Edit,
                 isSupported = { false },
                 // revokes then loads one message's text into the input box; single-message only
                 multiSelect = WeChatMessageContextMenuApi.MultiSelectSupport.Adapted(
