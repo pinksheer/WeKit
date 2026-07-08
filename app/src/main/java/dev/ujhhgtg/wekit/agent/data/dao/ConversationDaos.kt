@@ -30,6 +30,15 @@ interface SessionDao {
     @Query("UPDATE sessions SET favorite = :favorite WHERE id = :id")
     suspend fun setFavorite(id: String, favorite: Boolean)
 
+    @Query(
+        "UPDATE sessions SET promptTokens = :promptTokens, completionTokens = :completionTokens, " +
+            "totalTokens = :totalTokens WHERE id = :id"
+    )
+    suspend fun updateUsage(id: String, promptTokens: Int?, completionTokens: Int?, totalTokens: Int?)
+
+    @Query("UPDATE sessions SET contextWindow = :contextWindow WHERE id = :id")
+    suspend fun updateContextWindow(id: String, contextWindow: Int?)
+
     @Delete
     suspend fun delete(session: SessionEntity)
 

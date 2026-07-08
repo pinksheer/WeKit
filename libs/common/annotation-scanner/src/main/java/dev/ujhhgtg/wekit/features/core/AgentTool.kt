@@ -41,6 +41,7 @@ annotation class AgentTool(
         const val BUILTIN_UI = "builtin-ui"
         const val BUILTIN_WEBVIEW = "builtin-webview"
         const val BUILTIN_TRIGGER = "builtin-trigger"
+        const val BUILTIN_INFO = "builtin-info"
     }
 }
 

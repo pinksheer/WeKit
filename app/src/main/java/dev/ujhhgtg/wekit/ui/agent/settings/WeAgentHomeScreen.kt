@@ -20,6 +20,7 @@ import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.agent.data.entity.SystemPromptEntity
 import dev.ujhhgtg.wekit.agent.data.entity.WorkspaceEntity
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
+import dev.ujhhgtg.wekit.features.items.system.agent.WeAgentOverlayController
 import dev.ujhhgtg.wekit.ui.content.MiuixSmallTitle
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Card
@@ -30,11 +31,7 @@ import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
 
 /**
- * WeAgent settings home (§8). Sections per the requested layout:
- *  [模型] 模型提供方 → · 每轮请求上限 · 审批/标题小模型
- *  [工具] 内置工具 → · MCP 服务器 → · 动态工具发现开关 · 工作区 → · 记忆 →
- *  [上下文] 提示词 → · 技能 →
- *  [默认] 默认模型 · 默认系统提示词 · 默认工作区
+ * WeAgent settings home.
  */
 @Composable
 fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
@@ -42,7 +39,7 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
 
     var loaded by remember { mutableStateOf(false) }
     var dynamicTools by remember { mutableStateOf(false) }
-    var showUsage by remember { mutableStateOf(false) }
+    var overlayForegroundOnly by remember { mutableStateOf(false) }
     var sendWhileRunning by remember { mutableStateOf("QUEUE_AFTER_TURN") }
     var maxRequests by remember { mutableStateOf(WeAgentSettings.DEFAULT_MAX_MODEL_REQUESTS.toString()) }
     var smallModelId by remember { mutableStateOf<String?>(null) }
@@ -56,7 +53,7 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
 
     LaunchedEffect(Unit) {
         dynamicTools = WeAgentSettings.toolLoadingMode() == dev.ujhhgtg.wekit.agent.tool.ToolLoadingMode.DYNAMIC
-        showUsage = WeAgentSettings.showUsage()
+        overlayForegroundOnly = WeAgentSettings.overlayForegroundOnly()
         sendWhileRunning = WeAgentSettings.sendWhileRunningMode().name
         maxRequests = WeAgentSettings.maxModelRequests().toString()
         smallModelId = WeAgentSettings.smallModelId()
@@ -70,6 +67,25 @@ fun WeAgentHomeScreen(onOpen: (AgentSettingsScreen) -> Unit) {
     }
 
     AgentSettingsScaffold(title = "WeAgent 设置", onBack = null) {
+        // ---------- 界面 ----------
+        item { MiuixSmallTitle("界面") }
+        item {
+            Card(Modifier.padding(bottom = 6.dp)) {
+                if (loaded) {
+                    SwitchPreference(
+                        title = "仅前台显示悬浮窗",
+                        summary = "微信切到后台时自动隐藏悬浮窗，回到前台再显示",
+                        checked = overlayForegroundOnly,
+                        onCheckedChange = {
+                            overlayForegroundOnly = it
+                            WeAgentOverlayController.setForegroundOnly(it)
+                            scope.launch { WeAgentSettings.set(WeAgentSettings.KEY_OVERLAY_FOREGROUND_ONLY, it.toString()) }
+                        },
+                    )
+                }
+            }
+        }
+
         // ---------- 模型 ----------
         item { MiuixSmallTitle("模型") }
         item {

@@ -10,8 +10,8 @@ object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
     lateinit var moduleParentClassLoader: ClassLoader
     lateinit var hostClassLoader: ClassLoader
 
-//    @Volatile
-//    var prioritizeHostClasses = false
+    @Volatile
+    var prioritizeHostClasses = false
 
     override fun findClass(name: String): Class<*> {
         try {
@@ -19,7 +19,7 @@ object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
         } catch (_: ClassNotFoundException) {
         }
 
-//        if (!prioritizeHostClasses) {
+        if (!prioritizeHostClasses) {
             try {
                 return moduleParentClassLoader.loadClass(name)
             } catch (_: ClassNotFoundException) {
@@ -30,18 +30,18 @@ object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
             }
             catch (_: UninitializedPropertyAccessException) { }
             catch (_: ClassNotFoundException) { }
-//        }
-//        else {
-//            try {
-//                return hostClassLoader.loadClass(name)
-//            } catch (_: ClassNotFoundException) {
-//            }
-//
-//            try {
-//                return moduleParentClassLoader.loadClass(name)
-//            } catch (_: ClassNotFoundException) {
-//            }
-//        }
+        }
+        else {
+            try {
+                return hostClassLoader.loadClass(name)
+            } catch (_: ClassNotFoundException) {
+            }
+
+            try {
+                return moduleParentClassLoader.loadClass(name)
+            } catch (_: ClassNotFoundException) {
+            }
+        }
 
         throw ClassNotFoundException(name)
     }

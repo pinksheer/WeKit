@@ -27,20 +27,25 @@ import dev.ujhhgtg.wekit.agent.ui.UiImageSink
 import dev.ujhhgtg.wekit.agent.workspace.VfsContext
 import dev.ujhhgtg.wekit.agent.workspace.WorkspaceStore
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.ballState
+import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.handleEvent
+import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.init
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.newSession
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.pendingApproval
-import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.resolveApproval
+import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.pendingApprovals
+import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.runTurn
+import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.runningTurns
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.sendMessage
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.switchSession
+import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.syncForeground
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.uiMessages
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.uiSessions
 import dev.ujhhgtg.wekit.utils.WeLogger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -110,6 +115,14 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
 
     /** Token usage of the latest model request this session, for the usage strip (null = none yet). */
     val currentUsage = mutableStateOf<dev.ujhhgtg.wekit.agent.model.LlmUsage?>(null)
+
+    /**
+     * Context window (tokens) of the model actually used for the foreground session's current turn,
+     * or null when unknown. Published by [resolveTurnConfig] so the usage strip reflects the resolved
+     * "默认" model (session model → settings default → first model), not the raw session model id
+     * (which is null for "默认" and would otherwise never match a model entry).
+     */
+    val currentContextWindow = mutableStateOf<Int?>(null)
 
     // --- Queued-message state (§1.2) ---
 
@@ -270,7 +283,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
      */
     private suspend fun createAndSwitchSession(): String? {
         // Guard: refuse to create when no model exists at all, so the user gets a clear message.
-        if ((WeAgentSettings.defaultModelId() ?: firstAvailableModelId()) == null) {
+        if (WeAgentSettings.defaultModelId() ?: firstAvailableModelId() == null) {
             WeLogger.w(TAG, "cannot create session: no model configured")
             return null
         }
@@ -288,11 +301,11 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     /**
      * Creates a fresh session using the new-session defaults but does NOT switch the foreground to it
      * — used by GLOBAL triggers, which always run in a brand-new background session. Returns the id,
-     * or null if no model is configured. [TriggerManager.TriggerHost] impl.
+     * or null if no model is configured. [dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHost] impl.
      */
     override suspend fun createBackgroundSession(): String? {
         // Guard: refuse when no model exists at all (the fire is skipped upstream).
-        if ((WeAgentSettings.defaultModelId() ?: firstAvailableModelId()) == null) {
+        if (WeAgentSettings.defaultModelId() ?: firstAvailableModelId() == null) {
             WeLogger.w(TAG, "cannot create background session: no model configured")
             return null
         }
@@ -313,8 +326,13 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             currentModelId.value = session?.modelId
             currentSystemPromptId.value = session?.systemPromptId
             currentWorkspaceId.value = session?.workspaceId
-            // Usage is per-request and not persisted; clear it when switching away.
-            currentUsage.value = null
+            // Restore the last persisted usage + context window so the strip survives a session
+            // switch / WeChat restart (the next turn's resolveTurnConfig refreshes contextWindow).
+            currentUsage.value = session?.let {
+                if (it.promptTokens == null && it.completionTokens == null && it.totalTokens == null) null
+                else dev.ujhhgtg.wekit.agent.model.LlmUsage(it.promptTokens, it.completionTokens, it.totalTokens)
+            }
+            currentContextWindow.value = session?.contextWindow
             syncForeground(id)
         }
         reloadMessages(id)
@@ -360,6 +378,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
             withContext(Dispatchers.Main) {
                 uiMessages.clear()
                 currentUsage.value = null
+                currentContextWindow.value = null
                 currentModelId.value = null
                 currentSystemPromptId.value = null
                 currentWorkspaceId.value = null
@@ -549,7 +568,7 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         }
         val session = WeAgentRepository.getSession(sessionId) ?: return
         val priorHistory = WeAgentRepository.loadHistory(sessionId)
-        val engine = buildEngine(sessionId)
+        val engine = buildEngine(sessionId, session.createdAt)
         // workspaceId semantics: null = "默认" (resolve to the settings default so changing it applies
         // to existing sessions too), "" = "无" (explicitly no workspace), any other value = that workspace.
         val effectiveWorkspaceId = when (val ws = session.workspaceId) {
@@ -639,7 +658,12 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
                 if (foreground) appendUiRow(ChatRow(id = "t_${ev.callId}", role = ChatRow.Role.TOOL, text = ev.argumentsJson, toolName = ev.toolName))
             is AgentEvent.ToolAwaitingApproval -> if (foreground) ballState.value = BallState.PENDING_APPROVAL
             is AgentEvent.ToolCallFinished -> if (foreground) updateToolRow(ev.callId, ev.status, ev.resultText)
-            is AgentEvent.UsageUpdated -> if (foreground) currentUsage.value = ev.usage
+            is AgentEvent.UsageUpdated -> {
+                // Persist for every session (background turns too) so the strip survives switch/restart;
+                // mirror to the live UI state only for the foreground session.
+                WeAgentRepository.updateSessionUsage(sessionId, ev.usage)
+                if (foreground) currentUsage.value = ev.usage
+            }
             is AgentEvent.TurnCompleted -> if (foreground) refreshBallStateForForeground()
             is AgentEvent.MaxRequestsReached -> if (foreground) appendSystemNote("已达到最大调用次数（${ev.cap}）。")
             is AgentEvent.TurnFailed -> {
@@ -655,13 +679,16 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
     // Engine assembly
     // -----------------------------------------------------------------------------------------
 
-    private suspend fun buildEngine(sessionId: String): AgentSessionEngine {
+    private suspend fun buildEngine(sessionId: String, promptAnchorTime: java.time.Instant): AgentSessionEngine {
         val composer = PromptComposer(
             toolLoadingMode = WeAgentSettings.toolLoadingMode(),
             workspaceEnabled = WeAgentSettings.workspaceEnabled(),
             memoryEnabled = WeAgentSettings.memoryEnabled(),
             memoryIndexContent = if (WeAgentSettings.memoryEnabled()) WorkspaceStore.readMemoryIndex() else null,
             skillCatalog = dev.ujhhgtg.wekit.agent.skill.SkillStore.enabledSkills().map { it.name to it.description },
+            // Anchor the system-prompt clock to the session's creation time so the cacheable prefix
+            // stays byte-stable across every turn (see PromptComposer.promptAnchorTime).
+            promptAnchorTime = promptAnchorTime,
         )
         val approval = ApprovalGateway(
             manualHandler = manualApprovalHandler,
@@ -706,6 +733,13 @@ object WeAgentService : dev.ujhhgtg.wekit.agent.trigger.TriggerManager.TriggerHo
         // (same semantics as the workspace), so changing a default applies to existing sessions too.
         val effectiveModelId = session.modelId ?: WeAgentSettings.defaultModelId() ?: firstAvailableModelId()
         val model = effectiveModelId?.let { WeAgentRepository.getModel(it) } ?: return null
+        // Persist the resolved model's context window on the session so the usage strip can restore the
+        // bar after a switch / restart — even on "默认" (session.modelId == null), where a raw id lookup
+        // wouldn't match. Persisted for all sessions; only mirrored to the foreground UI state.
+        WeAgentRepository.updateSessionContextWindow(sessionId, model.contextWindow)
+        if (sessionId == currentSessionId.value) {
+            withContext(Dispatchers.Main) { currentContextWindow.value = model.contextWindow }
+        }
         val provider = WeAgentRepository.getDecryptedModelProvider(model.providerId) ?: return null
         val client = runCatching { ModelProviderManager.clientFor(provider) }.getOrNull() ?: return null
         // systemPromptId semantics: null = "默认" (follow settings default), "" = "无" (explicitly none),

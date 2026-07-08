@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.features.items.system.agent
 import android.content.Intent
 import androidx.activity.ComponentActivity
 import dev.ujhhgtg.wekit.activity.agent.WeAgentSettingsActivity
+import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -26,8 +27,10 @@ object WeAgent : ClickableFeature() {
 
     override fun onEnable() {
         WeAgentService.init()
-        // Mount the overlay on the main thread (WindowManager requirement).
         MainScope().launch(Dispatchers.Main) {
+            // Apply the foreground-only preference before mounting so the initial attach is gated.
+            WeAgentOverlayController.setForegroundOnly(WeAgentSettings.overlayForegroundOnly())
+            // Mount the overlay on the main thread (WindowManager requirement).
             WeAgentOverlayController.show()
         }
     }

@@ -30,6 +30,16 @@ data class SessionEntity(
      * un-starred — this guards sessions that own triggers from accidental deletion.
      */
     val favorite: Boolean = false,
+    /**
+     * Last reported token usage + resolved context window for this session, persisted so the usage
+     * strip survives a session switch / WeChat restart (usage is otherwise per-request in-memory).
+     * All null until the first model response; [contextWindow] is the window of the model actually
+     * used that turn (resolved "默认" included), null when the model declares none.
+     */
+    val promptTokens: Int? = null,
+    val completionTokens: Int? = null,
+    val totalTokens: Int? = null,
+    val contextWindow: Int? = null,
 )
 
 enum class MessageRole { USER, ASSISTANT, TOOL, SYSTEM }

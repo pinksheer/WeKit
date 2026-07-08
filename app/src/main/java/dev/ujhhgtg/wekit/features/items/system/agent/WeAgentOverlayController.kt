@@ -1,14 +1,14 @@
 package dev.ujhhgtg.wekit.features.items.system.agent
 
-import android.content.Context
 import android.graphics.PixelFormat
-import android.os.Build
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.ui.platform.ComposeView
 import dev.ujhhgtg.wekit.features.api.agent.WeAgentService
+import dev.ujhhgtg.wekit.features.items.system.agent.WeAgentOverlayController.foregroundOnly
+import dev.ujhhgtg.wekit.features.items.system.agent.WeAgentOverlayController.shouldBeVisible
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.agent.WeAgentBall
 import dev.ujhhgtg.wekit.ui.agent.WeAgentPanel
@@ -17,6 +17,7 @@ import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.android.getSystemService
 import dev.ujhhgtg.wekit.utils.android.showToast
 
 /**
@@ -30,13 +31,13 @@ import dev.ujhhgtg.wekit.utils.android.showToast
  */
 object WeAgentOverlayController {
 
-    private val TAG = "WeAgentOverlay"
+    private const val TAG = "WeAgentOverlayController"
 
     private const val PREF_BALL_X = "weagent_ball_x"
     private const val PREF_BALL_Y = "weagent_ball_y"
 
     private val wm: WindowManager
-        get() = HostInfo.application.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        get() = HostInfo.application.getSystemService<WindowManager>()
 
     private var ballView: ComposeView? = null
     private var ballParams: WindowManager.LayoutParams? = null
@@ -46,30 +47,74 @@ object WeAgentOverlayController {
     private var dragStartX = 0
     private var dragStartY = 0
 
+    /** Whether the ball window is currently attached to the [WindowManager]. */
     @Volatile var isShown = false
         private set
 
-    fun canDrawOverlays(): Boolean =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(HostInfo.application)
+    /** Whether the feature is enabled (user wants the overlay). Distinct from actual attachment. */
+    @Volatile private var desiredVisible = false
 
-    /** Adds the floating ball if permitted; toasts guidance otherwise. Idempotent. */
+    /** When true, the ball is only attached while WeChat is in the foreground (§ 界面 setting). */
+    @Volatile private var foregroundOnly = false
+
+    fun canDrawOverlays(): Boolean = Settings.canDrawOverlays(HostInfo.application)
+
+    /**
+     * Marks the overlay as desired (feature enabled) and reconciles visibility. With
+     * [foregroundOnly] on, the ball is only attached while WeChat is foreground; the tracker drives
+     * later attach/detach. Idempotent.
+     */
     fun show() {
-        if (isShown) return
+        desiredVisible = true
         if (!canDrawOverlays()) {
-            showToast("WeAgent 需要悬浮窗权限，请在系统设置中为微信开启「显示在其他应用上层」")
+            showToast("请在系统设置中为微信开启「显示在其他应用上层」")
             WeLogger.w(TAG, "no SYSTEM_ALERT_WINDOW permission for host process")
             return
         }
-        runCatching { addBall() }.onFailure { WeLogger.e(TAG, "failed to add ball", it) }
-        isShown = true
+        wireForegroundTracker()
+        reconcile()
     }
 
+    /** Marks the overlay as no longer desired and detaches it. */
     fun hide() {
-        removePanel()
-        ballView?.let { runCatching { wm.removeView(it) } }
-        ballView = null
-        ballParams = null
-        isShown = false
+        desiredVisible = false
+        reconcile()
+    }
+
+    /**
+     * Sets whether the overlay is foreground-only. Registers the foreground tracker when enabling so
+     * background transitions detach the ball, and reconciles immediately (e.g. re-attaches if WeChat
+     * is already foreground, or detaches now if it's background).
+     */
+    fun setForegroundOnly(enabled: Boolean) {
+        foregroundOnly = enabled
+        if (enabled) wireForegroundTracker()
+        reconcile()
+    }
+
+    private fun wireForegroundTracker() {
+        WeChatForegroundTracker.onChanged = { reconcile() }
+        WeChatForegroundTracker.ensureRegistered()
+    }
+
+    /** True when the ball should currently be attached given desire, permission, and foreground. */
+    private fun shouldBeVisible(): Boolean =
+        desiredVisible && canDrawOverlays() &&
+            (!foregroundOnly || WeChatForegroundTracker.isForeground)
+
+    /** Attaches or detaches the ball window to match [shouldBeVisible]. Must run on the main thread. */
+    private fun reconcile() {
+        val want = shouldBeVisible()
+        if (want && !isShown) {
+            runCatching { addBall() }.onFailure { WeLogger.e(TAG, "failed to add ball", it) }
+            isShown = true
+        } else if (!want && isShown) {
+            removePanel()
+            ballView?.let { runCatching { wm.removeView(it) } }
+            ballView = null
+            ballParams = null
+            isShown = false
+        }
     }
 
     // -----------------------------------------------------------------------------------------
@@ -167,10 +212,7 @@ object WeAgentOverlayController {
 
     @Suppress("DEPRECATION")
     private fun baseLayoutParams(focusable: Boolean): WindowManager.LayoutParams {
-        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        else
-            WindowManager.LayoutParams.TYPE_PHONE
+        val type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         var flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
         if (!focusable) {

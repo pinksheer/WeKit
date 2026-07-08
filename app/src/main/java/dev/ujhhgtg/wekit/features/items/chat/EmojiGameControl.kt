@@ -222,35 +222,33 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
 
             if (infoType != 0) return@hookBefore
 
-            val emojiInfo = obj.reflekt().firstField {
+            val emojiInfo = obj.reflekt().firstFieldOrNull {
                 type = IEmojiInfo::class
-            }.get() as? IEmojiInfo?
+            }?.get() as? IEmojiInfo? ?: return@hookBefore
 
-            if (emojiInfo != null) {
-                val emojiMd5 = emojiInfo.md5
-                val isDice = emojiMd5 == MD5_DICE
-                val isMorra = emojiMd5 == MD5_MORRA
+            val emojiMd5 = emojiInfo.md5
+            val isDice = emojiMd5 == MD5_DICE
+            val isMorra = emojiMd5 == MD5_MORRA
 
-                if (!isDice && !isMorra) return@hookBefore
+            if (!isDice && !isMorra) return@hookBefore
 
-                val activity = ((args[0] as View).context as ContextThemeWrapper).baseContext as Activity
+            val activity = ((args[0] as View).context as ContextThemeWrapper).baseContext as Activity
 
-                if (stealthMode) {
-                    this.result = null
-                    ensureSensorAlive(10000L)
+            if (stealthMode) {
+                this.result = null
+                ensureSensorAlive(10000L)
 
-                    val (ax, ay, az) = latestAccel.let { Triple(it[0], it[1], it[2]) }
-                    val value = mapToValue(ax, ay, az, isDice)
-                    if (isDice) valDice = value else valMorra = value
+                val (ax, ay, az) = latestAccel.let { Triple(it[0], it[1], it[2]) }
+                val value = mapToValue(ax, ay, az, isDice)
+                if (isDice) valDice = value else valMorra = value
 
-                    val name = if (isDice) DiceFace.entries[value].chineseName
-                    else MorraType.entries[value].chineseName
-                    showToast(activity, "${if (isDice) "骰子" else "猜拳"}: $name")
+                val name = if (isDice) DiceFace.entries[value].chineseName
+                else MorraType.entries[value].chineseName
+                showToast(activity, "${if (isDice) "骰子" else "猜拳"}: $name")
 
-                    invokeOriginal()
-                } else {
-                    showSelectDialog(this, isDice, activity)
-                }
+                invokeOriginal()
+            } else {
+                showSelectDialog(this, isDice, activity)
             }
         }
     }

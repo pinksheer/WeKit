@@ -9,6 +9,7 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -92,8 +93,6 @@ object AutoCacheFiles : SwitchFeature(),
         // 文件已就绪, 且尚未处理过 → 发起缓存
         if (!handledSvrIds.add(msgSvrId)) return
 
-        showToast("正在自动缓存文件...")
-
         WeLogger.i(TAG, "file msg $msgSvrId ready (appmsgType=${file.appMsgType}), auto caching")
         // 直接用这条消息的 ContentValues 重建实例, 避免再按 msgSvrId 查库 (可能查不到 / 字段缺失)。
         val msgInfoInstance = try {
@@ -105,9 +104,11 @@ object AutoCacheFiles : SwitchFeature(),
         }
 
         scope.launch {
+            showToastSuspend("正在自动缓存文件...")
             val path = WeMessageApi.cacheFile(msgInfoInstance)
             if (path != null) {
                 WeLogger.i(TAG, "cached file to $path")
+                showToastSuspend("文件缓存成功")
             } else {
                 WeLogger.e(TAG, "failed to auto-cache file msgSvrId=$msgSvrId")
                 // 缓存失败, 允许后续事件重试

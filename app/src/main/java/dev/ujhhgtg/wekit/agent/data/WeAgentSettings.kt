@@ -26,8 +26,8 @@ object WeAgentSettings {
     const val KEY_DEFAULT_MODEL_ID = "default_model_id"             // new-session default
     const val KEY_DEFAULT_SYSTEM_PROMPT_ID = "default_system_prompt_id" // new-session default binding
     const val KEY_DEFAULT_WORKSPACE_ID = "default_workspace_id"     // §7 new-session default
-    const val KEY_SHOW_USAGE = "show_usage"                         // usage strip above the input bar
     const val KEY_SEND_WHILE_RUNNING = "send_while_running"         // QUEUE_AFTER_TURN | QUEUE_AS_STEER
+    const val KEY_OVERLAY_FOREGROUND_ONLY = "overlay_foreground_only" // hide the floating ball when WeChat is backgrounded
 
     // Defaults
     const val DEFAULT_MAX_MODEL_REQUESTS = 50
@@ -68,7 +68,8 @@ object WeAgentSettings {
     suspend fun defaultSystemPromptId(): String? = get(KEY_DEFAULT_SYSTEM_PROMPT_ID)?.takeIf { it.isNotBlank() }
     suspend fun defaultWorkspaceId(): String? = get(KEY_DEFAULT_WORKSPACE_ID)?.takeIf { it.isNotBlank() }
 
-    suspend fun showUsage(): Boolean = get(KEY_SHOW_USAGE)?.toBoolean() ?: false
+    /** When true, the floating ball is only shown while WeChat is in the foreground (default false = always). */
+    suspend fun overlayForegroundOnly(): Boolean = get(KEY_OVERLAY_FOREGROUND_ONLY)?.toBoolean() ?: false
 
     /** Reads the send-while-running mode, defaulting to QUEUE_AFTER_TURN. */
     suspend fun sendWhileRunningMode(): dev.ujhhgtg.wekit.features.api.agent.WeAgentService.SendWhileRunningMode =

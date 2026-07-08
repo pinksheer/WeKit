@@ -166,12 +166,23 @@ class AnthropicMessagesClient(
         val maxTokens = request.maxTokens ?: DEFAULT_MAX_TOKENS
         put("max_tokens", maxTokens)
 
-        // Hoist all system messages into the top-level `system` string.
+        // Hoist all system messages into the top-level `system` field. We emit it as an array of
+        // text blocks (not a plain string) so the last block can carry a `cache_control` breakpoint:
+        // this makes Anthropic cache the tools + system prefix (prompt caching is opt-in on this API,
+        // unlike OpenAI's automatic prefix caching), so repeated turns re-read it instead of re-billing.
         val systemText = request.messages
             .filter { it.role == LlmRole.SYSTEM }
             .mapNotNull { it.content?.takeIf(String::isNotBlank) }
             .joinToString("\n\n")
-        if (systemText.isNotEmpty()) put("system", systemText)
+        if (systemText.isNotEmpty()) {
+            putJsonArray("system") {
+                addJsonObject {
+                    put("type", "text")
+                    put("text", systemText)
+                    putJsonObject("cache_control") { put("type", "ephemeral") }
+                }
+            }
+        }
 
         request.reasoningEffort?.let { effort ->
             budgetTokensFor(effort)?.let { budget ->
@@ -255,11 +266,29 @@ class AnthropicMessagesClient(
             }
         }
 
+        // Mark the final content block of the last turn with a cache breakpoint too, so the growing
+        // conversation prefix (everything before this turn's tail) is cached and re-read on the next
+        // turn — not just the static system+tools prefix. Anthropic caches up to the longest matching
+        // prefix; the previous request's breakpoint sits mid-history on the next request and still hits.
+        val lastTurnIndex = turns.lastIndex
+        val lastBlockIndex = turns.lastOrNull()?.second?.lastIndex ?: -1
         return buildJsonArray {
-            turns.forEach { (role, blocks) ->
+            turns.forEachIndexed { turnIndex, (role, blocks) ->
                 addJsonObject {
                     put("role", role)
-                    putJsonArray("content") { blocks.forEach { add(it) } }
+                    putJsonArray("content") {
+                        blocks.forEachIndexed { blockIndex, block ->
+                            if (turnIndex == lastTurnIndex && blockIndex == lastBlockIndex) {
+                                // Re-emit the block with an ephemeral cache_control breakpoint appended.
+                                add(buildJsonObject {
+                                    block.forEach { (k, v) -> put(k, v) }
+                                    putJsonObject("cache_control") { put("type", "ephemeral") }
+                                })
+                            } else {
+                                add(block)
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -9,9 +9,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -59,6 +59,7 @@ import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Cancel
 import com.composables.icons.materialsymbols.outlined.Close
+import com.composables.icons.materialsymbols.outlined.Copy_all
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Menu
 import com.composables.icons.materialsymbols.outlined.Menu_open
@@ -270,13 +271,16 @@ private fun ChatPane(modifier: Modifier, onDismiss: () -> Unit, onOpenSidebar: (
 private fun UsageStrip() {
     val usage by WeAgentService.currentUsage
     val currentModelId by WeAgentService.currentModelId
+    val resolvedCtx by WeAgentService.currentContextWindow
     val models = WeAgentService.availableModels
 
     if (usage == null) return
     val u = usage ?: return
 
-    // Context window (tokens) of the bound model, if it declares one.
-    val ctx = models.firstOrNull { it.id == currentModelId }?.contextWindow
+    // Context window (tokens) of the model actually used this turn. Prefer the service-published
+    // resolved window (covers "默认", where currentModelId is null and wouldn't match any entry);
+    // fall back to a direct lookup for an explicitly-bound model.
+    val ctx = resolvedCtx ?: models.firstOrNull { it.id == currentModelId }?.contextWindow
     // Prompt tokens are the context occupancy; fall back to total when prompt isn't reported.
     val used = u.promptTokens ?: u.totalTokens
     val pct = if (ctx != null && ctx > 0 && used != null) (used.toFloat() / ctx).coerceIn(0f, 1f) else null
@@ -659,7 +663,13 @@ private fun MessageBubble(row: ChatRow) {
                         if (longPressable) {
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(
-                                    text = { Text("复制原始文本") },
+                                    text = { Text("复制") },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = MaterialSymbols.Outlined.Copy_all,
+                                            contentDescription = "Copy"
+                                        )
+                                    },
                                     onClick = {
                                         copyToClipboard(row.text)
                                         showToast("已复制")
@@ -717,7 +727,7 @@ private fun CollapsibleCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    (if (expanded) "收起 " else "展开 "),
+                    if (expanded) "收起 " else "展开 ",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )

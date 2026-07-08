@@ -2,7 +2,8 @@ package dev.ujhhgtg.wekit.agent.engine
 
 import dev.ujhhgtg.wekit.agent.data.entity.ConditionalPromptEntity
 import dev.ujhhgtg.wekit.agent.tool.ToolLoadingMode
-import java.time.ZonedDateTime
+import java.time.Instant
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
@@ -21,6 +22,15 @@ class PromptComposer(
     private val memoryIndexContent: String?,
     /** Enabled skills as (name, description) pairs, advertised as a catalog (dynamic discovery). */
     private val skillCatalog: List<Pair<String, String>> = emptyList(),
+    /**
+     * The instant baked into the "当前日期时间" line of the system prompt. This MUST be a value that
+     * is stable across every request of a session (we pass the session's `createdAt`), NOT a fresh
+     * `now()` per turn: the system prompt is the head of the cacheable prefix, so a per-request clock
+     * (down to the second) would bust prompt caching on every turn and re-bill the whole context as
+     * fresh input tokens. The model can fetch the live time on demand via the `get-current-time`
+     * tool (builtin-info) when it actually needs the real current time.
+     */
+    private val promptAnchorTime: Instant = Instant.now(),
 ) {
 
     /** Builds the full system message. [systemPromptContent] is the session's bound system prompt, or null. */
@@ -80,16 +90,19 @@ class PromptComposer(
     }
 
     private fun defaultSystemPrompt(): String {
-        val now = ZonedDateTime.now()
-        val dateTime = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-        val tz = now.zone.id
+        // Anchor the displayed time to the session's fixed [promptAnchorTime], NOT a per-turn now():
+        // this line sits at the head of the cacheable prefix, so a live clock would bust prompt
+        // caching every turn. The model calls `get-current-time` when it needs the real current time.
+        val anchored = promptAnchorTime.atZone(ZoneId.systemDefault())
+        val dateTime = anchored.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+        val tz = anchored.zone.id
         return buildString {
             append(
                 """
                 你是 WeAgent，一个运行在微信 App 内部的智能体，通过 WeKit 模块以 Xposed Hook 方式获得对微信客户端的操作能力。
 
                 # 当前环境
-                - 当前日期时间：$dateTime（$tz）
+                - 会话创建时间：$dateTime（$tz）。注意：这是本会话开始时的时间，不会随对话推进而更新；需要获取「真实的当前时间」时，请调用 get-current-time 工具，不要依赖此处的时间。
                 - 运行环境：Android 微信客户端内嵌 Agent，你的操作会直接影响用户的真实微信账号与真实聊天记录，请谨慎操作，尤其是发送消息、删除数据等不可逆操作。
                 - 你通过工具调用（function calling）与外部世界交互；除了工具调用外，你不能以任何其他方式影响微信或用户设备。
 
